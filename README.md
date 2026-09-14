@@ -1,6 +1,6 @@
 # ⬇️ qBittorrent for Dogebox
 
-> **Latest:** v0.0.3 — ships `WebUI\HostHeaderValidation=false` in the default config and normalizes a re-enabled value back to `false` on every container start, so the WebUI renders directly through the dogeboxd gateway (no nginx Host-rewrite workaround required). See [Troubleshooting](#troubleshooting) if a pre-0.0.2 install still 401s.
+> **Latest:** v0.0.5 — qB runs inside a **bubblewrap sandbox** (private PID/UTS/IPC/cgroup namespaces, all capabilities dropped, only `/storage/{config,downloads,quarantine}` bind-mounted, `/tmp` is a private tmpfs). Plus the v0.0.3 Host-header-validation fix. See [Security](#security) and [Troubleshooting](#troubleshooting).
 
 <p align="center"><img src="qbittorrent/logo.png" width="110" alt="qBittorrent pup logo"></p>
 
@@ -36,6 +36,22 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
     -d 'json={"web_ui_host_header_validation_enabled":false}'
   ```
   (note the exact key name — the shorter `web_ui_host_header_validation` is silently ignored by 5.x). Authentication itself is unaffected: the LAN/bridge subnet whitelist stays the auth boundary, so create your WebUI credentials as above. Trade-off: this disables qBittorrent's DNS-rebinding defense — acceptable on a LAN-only box where the dogebox gateway is the sole ingress; re-enabling it in the WebUI settings will bring the 401 back (the pup normalizes it off again on next start).
+
+## Security
+
+**v0.0.5 — bubblewrap sandbox:** qBittorrent-nox runs as a child of `bwrap` with:
+
+- Private namespaces: PID, UTS, IPC, cgroup
+- All Linux capabilities dropped (`--cap-drop ALL`)
+- New privilege escalation prevented by the read-only `/nix/store` (no setuid binaries)
+- Filesystem visibility: `/nix/store` read-only, `/etc/{resolv,nsswitch,hosts,ssl}` read-only, `/proc`, `/dev`, private `/tmp` (tmpfs), and only these bind mounts:
+  - `/storage/config` ↔ real pup config
+  - `/storage/downloads` ↔ real downloads dir
+  - `/storage/quarantine` ↔ real quarantine dir (for the optional ClamAV pup to drop bad files)
+
+Even if a torrent tricked qB into spawning a child process, that child would have no visibility of the host filesystem outside `/storage/`, no shell, no ability to escalate. The cost is essentially zero — bwrap uses Linux namespaces natively, no syscall overhead.
+
+**v0.0.3 — Host-header validation off:** qBittorrent 5.x's default `WebUI\HostHeaderValidation=true` rejects every dogeboxd-proxied request because dogeboxd forwards the browser's original Host header verbatim. v0.0.2+ defaults to `false`, v0.0.3+ normalizes a re-enabled value back to `false` on every container start. Trade-off: DNS-rebinding defense is dropped — acceptable since the dogeboxd gateway is the sole ingress. See [Troubleshooting](#troubleshooting) for the runtime one-liner.
 
 ## Legal source tip
 
