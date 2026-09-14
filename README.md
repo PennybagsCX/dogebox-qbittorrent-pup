@@ -33,7 +33,7 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
   curl -X POST http://<container-ip>:8080/api/v2/app/setPreferences \
     -d 'json={"web_ui_host_header_validation_enabled":false}'
   ```
-  (note the exact key name — the shorter `web_ui_host_header_validation` is silently ignored by 5.x). Authentication itself is unaffected: the LAN/bridge subnet whitelist stays the auth boundary, so create your WebUI credentials as above.
+  (note the exact key name — the shorter `web_ui_host_header_validation` is silently ignored by 5.x). Authentication itself is unaffected: the LAN/bridge subnet whitelist stays the auth boundary, so create your WebUI credentials as above. Trade-off: this disables qBittorrent's DNS-rebinding defense — acceptable on a LAN-only box where the dogebox gateway is the sole ingress; re-enabling it in the WebUI settings will bring the 401 back (the pup normalizes it off again on next start).
 
 ## Legal source tip
 

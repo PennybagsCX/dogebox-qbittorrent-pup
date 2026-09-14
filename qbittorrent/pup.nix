@@ -35,6 +35,10 @@ let
     # container service PATH only carries coreutils/util-linux.
     ${pkgs.gnugrep}/bin/grep -q '^WebUI\\HostHeaderValidation=' "$CONF" || \
       ${pkgs.gnused}/bin/sed -i '/^\[Preferences\]/a WebUI\\HostHeaderValidation=false' "$CONF"
+    # dogeboxd always forwards the browser's Host header, so validation can
+    # never pass through the gateway — if it got re-enabled in the WebUI
+    # settings, normalize it back off or every dashboard launch 401s again.
+    ${pkgs.gnused}/bin/sed -i 's/^WebUI\\HostHeaderValidation=true$/WebUI\\HostHeaderValidation=false/' "$CONF"
     exec ${app}/bin/qbittorrent-nox --webui-port=8080
   '';
 in
