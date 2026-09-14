@@ -1,5 +1,7 @@
 # ⬇️ qBittorrent for Dogebox
 
+> **Latest:** v0.0.3 — ships `WebUI\HostHeaderValidation=false` in the default config and normalizes a re-enabled value back to `false` on every container start, so the WebUI renders directly through the dogeboxd gateway (no nginx Host-rewrite workaround required). See [Troubleshooting](#troubleshooting) if a pre-0.0.2 install still 401s.
+
 <p align="center"><img src="qbittorrent/logo.png" width="110" alt="qBittorrent pup logo"></p>
 
 **[qBittorrent-nox](https://www.qbittorrent.org) (headless, Web UI) packaged as a [Dogebox](https://dogebox.org) pup** — the download engine for the media automation stack: [Radarr](https://github.com/PennybagsCX/dogebox-radarr-pup) / [Sonarr](https://github.com/PennybagsCX/dogebox-sonarr-pup) drive it, [Jellyfin](https://github.com/PennybagsCX/dogebox-jellyfin-pup) plays the results. Indexer definitions (including the public-domain **Internet Archive**) via [Prowlarr](https://github.com/PennybagsCX/dogebox-prowlarr-pup).

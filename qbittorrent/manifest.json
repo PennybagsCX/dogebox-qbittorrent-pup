@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "meta": {
     "name": "qBittorrent",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "logoPath": "logo.png",
     "shortDescription": "Torrent client with web UI",
     "longDescription": "qBittorrent-nox headless client. Pairs with the Radarr/Sonarr pups as their download client, with finished downloads bridged into the Jellyfin library by the host sync timer. Web UI on port 8080.",
