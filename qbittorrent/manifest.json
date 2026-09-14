@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "meta": {
     "name": "qBittorrent",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "logoPath": "logo.png",
     "shortDescription": "Torrent client with web UI",
     "longDescription": "qBittorrent-nox headless client. Pairs with the Radarr/Sonarr pups as their download client, with finished downloads bridged into the Jellyfin library by the host sync timer. Web UI on port 8080.",
@@ -16,7 +16,7 @@
   "container": {
     "build": {
       "nixFile": "pup.nix",
-      "nixFileSha256": "fd9f32962f87eac783b4c1cd88e0365d04b1b59098cfa4d4031632e5c93be62e"
+      "nixFileSha256": "d7ba2a0a14d5ed14204cca7a7a24ed289ea5ba89cd45cecb93e6795eb647cebd"
     },
     "services": [
       {

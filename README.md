@@ -26,6 +26,15 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
 
 `qB /storage/downloads` → host sync timer → Radarr/Sonarr import & rename → existing timer → Jellyfin library. Because pups are filesystem-isolated, the bridge is a host-side systemd timer (rsync + a `DownloadedMoviesScan` / `DownloadedEpisodesScan` API call) — see the Radarr/Sonarr pup READMEs.
 
+## Troubleshooting
+
+- **WebUI shows a bare "Unauthorized" (401) when launched from the dashboard** — qBittorrent 5.x validates Host headers by default, but the dogeboxd gateway forwards your browser's original `Host` (`<box-ip>:<mapped-port>`), so qBittorrent rejects the page. v0.0.2 ships `WebUI\HostHeaderValidation=false` in the default config and inserts it on upgrade (the config file is write-if-missing). To fix a pre-0.0.2 install at runtime, from the box:
+  ```bash
+  curl -X POST http://<container-ip>:8080/api/v2/app/setPreferences \
+    -d 'json={"web_ui_host_header_validation_enabled":false}'
+  ```
+  (note the exact key name — the shorter `web_ui_host_header_validation` is silently ignored by 5.x). Authentication itself is unaffected: the LAN/bridge subnet whitelist stays the auth boundary, so create your WebUI credentials as above.
+
 ## Legal source tip
 
 The Internet Archive hosts thousands of public-domain films with native torrents — grab a `.torrent` from any item page and drop it into the qB WebUI for an instant legal end-to-end test. For automatic indexing, add the Internet Archive indexer in Prowlarr and sync it to Radarr/Sonarr.
