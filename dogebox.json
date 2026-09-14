@@ -1,0 +1,6 @@
+{
+  "id": "dts.pups.qbittorrent",
+  "name": "dts — qbittorrent",
+  "description": "qbittorrent pup for Dogebox",
+  "pups": [{"location": "qbittorrent"}]
+}
