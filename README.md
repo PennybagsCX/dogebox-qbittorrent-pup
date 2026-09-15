@@ -47,9 +47,11 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
 - Filesystem visibility: `/nix/store` read-only, `/etc/{resolv,nsswitch,hosts,ssl}` read-only, `/proc`, `/dev`, private `/tmp` (tmpfs), and only these bind mounts:
   - `/storage/config` ↔ real pup config
   - `/storage/downloads` ↔ real downloads dir
-  - `/storage/quarantine` ↔ real quarantine dir (for the optional ClamAV pup to drop bad files)
+  - `/storage/quarantine` ↔ real quarantine dir (for the [ClamAV pup](https://github.com/PennybagsCX/dogebox-clamav-pup) to drop bad files)
 
 Even if a torrent tricked qB into spawning a child process, that child would have no visibility of the host filesystem outside `/storage/`, no shell, no ability to escalate. The cost is essentially zero — bwrap uses Linux namespaces natively, no syscall overhead.
+
+**Defense in depth:** pair with the [ClamAV pup](https://github.com/PennybagsCX/dogebox-clamav-pup) for signature-based malware scanning. ClamAV identifies what qB pulled; the sandbox prevents execution if anything slips through.
 
 **v0.0.3 — Host-header validation off:** qBittorrent 5.x's default `WebUI\HostHeaderValidation=true` rejects every dogeboxd-proxied request because dogeboxd forwards the browser's original Host header verbatim. v0.0.2+ defaults to `false`, v0.0.3+ normalizes a re-enabled value back to `false` on every container start. Trade-off: DNS-rebinding defense is dropped — acceptable since the dogeboxd gateway is the sole ingress. See [Troubleshooting](#troubleshooting) for the runtime one-liner.
 
