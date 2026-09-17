@@ -7,16 +7,19 @@
 # original Host header (<box-ip>:<mapped-port>), which qBittorrent 5.x
 # otherwise rejects with 401 before the page even loads.
 #
-# v0.0.5 also runs qB inside a bubblewrap sandbox: bind-mount only the
-# storage paths it needs, give it a private /tmp + /proc + /dev, drop all
-# capabilities, and run it as a non-privileged user inside its own PID
-# namespace. Even if a torrent tricked qB into spawning a child process,
-# the child could only touch /storage/{config,downloads,quarantine} and
-# nothing else on the host filesystem. Cost is essentially zero (bwrap
-# uses Linux namespaces natively, no syscall overhead).
+# v0.0.5 tried to run qB inside a bubblewrap sandbox (bind-mounted storage
+# paths, private /tmp+/proc+/dev, all caps dropped). It never worked on a
+# real Dogebox: systemd-nspawn pup containers may not mount a fresh /proc,
+# so bwrap aborts with "Can't mount proc on /newroot/proc: Operation not
+# permitted" and the service restart-loops (verified 2026-09-17 on-box,
+# restart counter 5). The nixpkgs bubblewrap package is not setuid, and
+# userns-clone alone is not enough for --proc inside nspawn.
+# v0.0.6 reverts to a direct exec while KEEPING the 0.0.5 fixes that do
+# work: HostHeaderValidation default-off + normalization, quarantine dir,
+# write-if-missing conf template. The sandbox idea can return when the
+# Dogebox nspawn profile grants mount-namespace capabilities.
 let
   app = pkgs.qbittorrent-nox;
-  bwrap = pkgs.bubblewrap;
 
   run = pkgs.writeScriptBin "run.sh" ''
     #!${pkgs.stdenv.shell}
@@ -48,31 +51,8 @@ let
     # never pass through the gateway — if it got re-enabled in the WebUI
     # settings, normalize it back off or every dashboard launch 401s again.
     ${pkgs.gnused}/bin/sed -i 's/^WebUI\\HostHeaderValidation=true$/WebUI\\HostHeaderValidation=false/' "$CONF"
-    # Drop a marker so the WebUI + tests can detect the sandbox is active.
-    # qB can read it (write to log? not strictly needed, harmless).
-    exec ${bwrap}/bin/bwrap \
-      --as-pid-1 \
-      --unshare-pid \
-      --unshare-uts \
-      --unshare-ipc \
-      --unshare-cgroup \
-      --hostname qbittorrent-sandbox \
-      --ro-bind /nix/store /nix/store \
-      --ro-bind /etc/resolv.conf /etc/resolv.conf \
-      --ro-bind /etc/nsswitch.conf /etc/nsswitch.conf \
-      --ro-bind /etc/hosts /etc/hosts \
-      --ro-bind /etc/ssl /etc/ssl \
-      --dir /tmp \
-      --tmpfs /tmp \
-      --proc /proc \
-      --dev /dev \
-      --bind /storage/config /storage/config \
-      --bind /storage/downloads /storage/downloads \
-      --bind /storage/quarantine /storage/quarantine \
-      --cap-drop ALL \
-      --die-with-parent \
-      -- \
-      ${app}/bin/qbittorrent-nox --webui-port=8080
+    # Direct exec — see header note for why the 0.0.5 bwrap sandbox is gone.
+    exec ${app}/bin/qbittorrent-nox --webui-port=8080
   '';
 in
 {
