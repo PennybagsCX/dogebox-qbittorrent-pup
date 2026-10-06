@@ -1,6 +1,6 @@
 # ⬇️ qBittorrent for Dogebox
 
-> **Latest:** v0.0.5 — qB runs inside a **bubblewrap sandbox** (private PID/UTS/IPC/cgroup namespaces, all capabilities dropped, only `/storage/{config,downloads,quarantine}` bind-mounted, `/tmp` is a private tmpfs). Plus the v0.0.3 Host-header-validation fix. See [Security](#security) and [Troubleshooting](#troubleshooting).
+> **Latest:** v0.0.6 — **reverts the v0.0.5 bubblewrap sandbox.** The sandbox could not run inside Dogebox's systemd-nspawn pup containers: nspawn denies the fresh `/proc` mount bwrap needs (`Can't mount proc on /newroot/proc: Operation not permitted`), so qB restart-looped (verified on-box 2026-09-17). v0.0.6 returns to a direct exec but **keeps** the working v0.0.5 fixes: `WebUI\HostHeaderValidation` default-off + normalized back off on every start, the quarantine dir, and the write-if-missing conf template. See [Troubleshooting](#troubleshooting).
 
 <p align="center"><img src="qbittorrent/logo.png" width="110" alt="qBittorrent pup logo"></p>
 
@@ -26,7 +26,7 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
 
 ## Media pipeline
 
-`qB /storage/downloads` → host sync timer → Radarr/Sonarr import & rename → existing timer → Jellyfin library. Because pups are filesystem-isolated, the bridge is a host-side systemd timer (rsync + a `DownloadedMoviesScan` / `DownloadedEpisodesScan` API call) — see the Radarr/Sonarr pup READMEs.
+`qB /storage/downloads` → host sync timer (`qb-to-arrs`: episode-pattern paths rsync to Sonarr, everything else to Radarr) → Radarr/Sonarr import & rename via a `DownloadedMoviesScan` / `DownloadedEpisodesScan` API call from the same timer → existing timers move finished files into the Jellyfin library. Because pups are filesystem-isolated, the bridge is a set of host-side systemd timers (rsync + API scan calls) — see the Radarr/Sonarr pup READMEs. All of it verified running on the audit box (`radarr-to-jellyfin.timer`, `sonarr-to-jellyfin.timer`, `qb-to-arrs.timer` active).
 
 ## Troubleshooting
 
@@ -39,19 +39,9 @@ curl -X POST http://<box>:<port>/api/v2/app/setPreferences \
 
 ## Security
 
-**v0.0.5 — bubblewrap sandbox:** qBittorrent-nox runs as a child of `bwrap` with:
+**Sandbox status — removed in v0.0.6:** v0.0.5 wrapped qBittorrent-nox in a bubblewrap sandbox (private PID/UTS/IPC/cgroup namespaces, all capabilities dropped, only `/storage/{config,downloads,quarantine}` bind-mounted). It never worked on a real Dogebox: systemd-nspawn pup containers may not mount a fresh `/proc`, so bwrap aborted with `Can't mount proc on /newroot/proc: Operation not permitted` and the service restart-looped (verified on-box 2026-09-17, restart counter 5). The nixpkgs bubblewrap package is not setuid, and userns-clone alone is not enough for `--proc` inside nspawn. The sandbox can return when the Dogebox nspawn profile grants mount-namespace capabilities — until then, defense in depth rests on the items below.
 
-- Private namespaces: PID, UTS, IPC, cgroup
-- All Linux capabilities dropped (`--cap-drop ALL`)
-- New privilege escalation prevented by the read-only `/nix/store` (no setuid binaries)
-- Filesystem visibility: `/nix/store` read-only, `/etc/{resolv,nsswitch,hosts,ssl}` read-only, `/proc`, `/dev`, private `/tmp` (tmpfs), and only these bind mounts:
-  - `/storage/config` ↔ real pup config
-  - `/storage/downloads` ↔ real downloads dir
-  - `/storage/quarantine` ↔ real quarantine dir (for the [ClamAV pup](https://github.com/PennybagsCX/dogebox-clamav-pup) to drop bad files)
-
-Even if a torrent tricked qB into spawning a child process, that child would have no visibility of the host filesystem outside `/storage/`, no shell, no ability to escalate. The cost is essentially zero — bwrap uses Linux namespaces natively, no syscall overhead.
-
-**Defense in depth:** pair with the [ClamAV pup](https://github.com/PennybagsCX/dogebox-clamav-pup) for signature-based malware scanning. ClamAV identifies what qB pulled; the sandbox prevents execution if anything slips through.
+**Defense in depth:** pair with the [ClamAV pup](https://github.com/PennybagsCX/dogebox-clamav-pup) for signature-based malware scanning — hourly scans (verified running on the audit box) with quarantine of flagged files. qB's attack surface is further bounded by its `AuthSubnetWhitelist` (LAN/bridge subnets only) and by the dogebox gateway being the sole ingress — every other port is not exposed beyond the box.
 
 **v0.0.3 — Host-header validation off:** qBittorrent 5.x's default `WebUI\HostHeaderValidation=true` rejects every dogeboxd-proxied request because dogeboxd forwards the browser's original Host header verbatim. v0.0.2+ defaults to `false`, v0.0.3+ normalizes a re-enabled value back to `false` on every container start. Trade-off: DNS-rebinding defense is dropped — acceptable since the dogeboxd gateway is the sole ingress. See [Troubleshooting](#troubleshooting) for the runtime one-liner.
 
